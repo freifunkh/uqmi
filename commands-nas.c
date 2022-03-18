@@ -314,7 +314,7 @@ print_system_info(uint8_t svc_status, uint8_t tsvc_status, bool preferred, bool 
 		  bool roaming_status_valid, uint8_t roaming_status,
 		  bool forbidden_valid, bool forbidden,
 		  bool lac_valid, uint16_t lac,
-		  bool cid_valid, uint32_t cid,
+		  uint8_t generation, bool cid_valid, uint32_t cid,
 		  bool network_id_valid, char *mcc, char *mnc)
 {
 	static const char *map_service[] = {
@@ -365,7 +365,19 @@ print_system_info(uint8_t svc_status, uint8_t tsvc_status, bool preferred, bool 
 		if (lac_valid)
 			blobmsg_add_u32(&status, "location_area_code", (int32_t) lac);
 		if (cid_valid)
-			blobmsg_add_u32(&status, "cell_id", (int32_t) cid);
+			// TODO possibly here
+			switch (generation) {
+				case 3:
+					blobmsg_add_u32(&status, "rnc_id", cid/65536);
+					blobmsg_add_u32(&status, "cell_id", cid%65536);
+					break;
+				case 4:
+					blobmsg_add_u32(&status, "enodeb_id", cid/256);
+					blobmsg_add_u32(&status, "cell_id", cid%256);
+					break;
+				default:
+					blobmsg_add_u32(&status, "cell_id", (int32_t) cid);
+			}
 		if (network_id_valid) {
 			blobmsg_add_string(&status, "mcc", mcc);
 			if ((uint8_t)mnc[2] == 255)
@@ -407,7 +419,9 @@ cmd_nas_get_system_info_cb(struct qmi_dev *qmi, struct qmi_request *req, struct 
 				  res.data.gsm_system_info_v2.forbidden,
 				  res.data.gsm_system_info_v2.lac_valid,
 				  res.data.gsm_system_info_v2.lac,
+				  2,
 				  res.data.gsm_system_info_v2.cid_valid,
+				  // TODO possibly here
 				  res.data.gsm_system_info_v2.cid,
 				  res.data.gsm_system_info_v2.network_id_valid,
 				  res.data.gsm_system_info_v2.mcc,
@@ -435,7 +449,9 @@ cmd_nas_get_system_info_cb(struct qmi_dev *qmi, struct qmi_request *req, struct 
 				  res.data.wcdma_system_info_v2.forbidden,
 				  res.data.wcdma_system_info_v2.lac_valid,
 				  res.data.wcdma_system_info_v2.lac,
+				  3,
 				  res.data.wcdma_system_info_v2.cid_valid,
+				  // TODO possibly here
 				  res.data.wcdma_system_info_v2.cid,
 				  res.data.wcdma_system_info_v2.network_id_valid,
 				  res.data.wcdma_system_info_v2.mcc,
@@ -463,7 +479,9 @@ cmd_nas_get_system_info_cb(struct qmi_dev *qmi, struct qmi_request *req, struct 
 				  res.data.lte_system_info_v2.forbidden,
 				  res.data.lte_system_info_v2.lac_valid,
 				  res.data.lte_system_info_v2.lac,
+				  4,
 				  res.data.lte_system_info_v2.cid_valid,
+				  // TODO possibly here
 				  res.data.lte_system_info_v2.cid,
 				  res.data.lte_system_info_v2.network_id_valid,
 				  res.data.lte_system_info_v2.mcc,
@@ -716,6 +734,7 @@ cmd_nas_get_cell_location_info_cb(struct qmi_dev *qmi, struct qmi_request *req, 
 
 	if (res.set.umts_info_v2) {
 		c = blobmsg_open_table(&status, "umts_info");
+		//TODO heres a cell_id
 		blobmsg_add_u32(&status, "cell_id", res.data.umts_info_v2.cell_id);
 		blobmsg_add_u32(&status, "location_area_code", res.data.umts_info_v2.lac);
 		blobmsg_add_u32(&status, "channel",
@@ -758,6 +777,10 @@ cmd_nas_get_cell_location_info_cb(struct qmi_dev *qmi, struct qmi_request *req, 
 				res.data.intrafrequency_lte_info_v2.tracking_area_code);
 		blobmsg_add_u32(&status, "global_cell_id",
 				res.data.intrafrequency_lte_info_v2.global_cell_id);
+		blobmsg_add_u32(&status, "enodeb_id",
+				res.data.intrafrequency_lte_info_v2.global_cell_id/256);
+		blobmsg_add_u32(&status, "cell_id",
+				res.data.intrafrequency_lte_info_v2.global_cell_id%256);
 		blobmsg_add_u32(&status, "channel",
 				res.data.intrafrequency_lte_info_v2.eutra_absolute_rf_channel_number);
 		print_earfcn_info(res.data.intrafrequency_lte_info_v2.eutra_absolute_rf_channel_number);
